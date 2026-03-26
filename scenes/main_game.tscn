@@ -1,15 +1,17 @@
-[gd_scene load_steps=2 format=3 uid="uid://da2tgbgkcc6lf"]
+[gd_scene load_steps=3 format=3 uid="uid://da2tgbgkcc6lf"]
 
-[ext_resource type="Script" uid="uid://dch0aroach24n" path="res://scripts/map_manager.gd" id="1_1oj5k"]
+[ext_resource type="Script" uid="uid://dch0aroach24n" path="res://scripts/map_manager.gd" id="1_72e8q"]
+[ext_resource type="Script" uid="uid://u0ntiwsgru00" path="res://scripts/unit_manager.gd" id="2_d2op2"]
 
 [node name="GameManager" type="Control"]
 layout_mode = 3
 anchors_preset = 0
 
 [node name="MapManager" type="Node2D" parent="."]
-script = ExtResource("1_1oj5k")
+script = ExtResource("1_72e8q")
 
 [node name="UnitManager" type="Node2D" parent="."]
+script = ExtResource("2_d2op2")
 
 [node name="AbilitySystem" type="Control" parent="."]
 anchors_preset = 0
