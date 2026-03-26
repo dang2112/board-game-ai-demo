@@ -1,11 +1,13 @@
-[gd_scene load_steps=3 format=3 uid="uid://da2tgbgkcc6lf"]
+[gd_scene load_steps=4 format=3 uid="uid://da2tgbgkcc6lf"]
 
 [ext_resource type="Script" uid="uid://dch0aroach24n" path="res://scripts/map_manager.gd" id="1_72e8q"]
+[ext_resource type="Script" uid="uid://se1ovt2eedak" path="res://scripts/main_game.gd" id="1_d2op2"]
 [ext_resource type="Script" uid="uid://u0ntiwsgru00" path="res://scripts/unit_manager.gd" id="2_d2op2"]
 
 [node name="GameManager" type="Control"]
 layout_mode = 3
 anchors_preset = 0
+script = ExtResource("1_d2op2")
 
 [node name="MapManager" type="Node2D" parent="."]
 script = ExtResource("1_72e8q")
