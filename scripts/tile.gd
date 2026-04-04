@@ -1,5 +1,5 @@
 class_name Tile
-extends Node2D
+extends Control
 #a map is a grid of square Tiles
 #note: the map itself can be irregular but each tile is a square
 
@@ -13,3 +13,9 @@ func get_movement_cost():
 		GameEnums.TerrainType.HOUSE: return 2
 		GameEnums.TerrainType.ROAD: return 1
 		GameEnums.TerrainType.IMPASSABLE: return -1
+
+func update_visual():
+	position = grid_pos * 100
+
+func _process(delta: float) -> void:
+	update_visual()

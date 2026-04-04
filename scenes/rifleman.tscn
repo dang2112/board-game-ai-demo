@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3 uid="uid://cp17cyo2x76wc"]
+
+[ext_resource type="Script" uid="uid://bxy8rcy2uty8k" path="res://resources/rifleman.gd" id="1_xhiw5"]
+[ext_resource type="Texture2D" uid="uid://c5bep0ulvjgya" path="res://assets/thing1.png" id="2_6wpn7"]
+
+[node name="Rifleman" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("1_xhiw5")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+position = Vector2(15, 15)
+scale = Vector2(0.1, 0.1)
+texture = ExtResource("2_6wpn7")

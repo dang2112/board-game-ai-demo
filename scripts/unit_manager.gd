@@ -3,7 +3,8 @@ extends Node2D
 var units = []
 
 func spawn_unit(unit_data, grid_pos, team):
-	var unit = preload("res://scenes/unit.tscn").instantiate()
+	var unit_scene: PackedScene = load(unit_data) #unit_data is form "res://rifleman.tscn"
+	var unit = unit_scene.instantiate()
 	
 	unit.team = team
 	unit.position_on_grid = grid_pos

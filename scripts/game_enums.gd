@@ -4,5 +4,6 @@ enum TerrainType {
 	FOREST,
 	HOUSE,
 	ROAD,
+	VICTORY,
 	IMPASSABLE
 }
