@@ -31,10 +31,9 @@ script = ExtResource("4_0rdsr")
 [node name="UI" type="CanvasLayer" parent="."]
 
 [node name="HUDPanel" type="PanelContainer" parent="UI"]
-offset_left = 24.0
-offset_top = 24.0
-offset_right = 372.0
-offset_bottom = 480.0
+custom_minimum_size = Vector2(348, 0)
+offset_right = 348.0
+offset_bottom = 456.0
 
 [node name="MarginContainer" type="MarginContainer" parent="UI/HUDPanel"]
 layout_mode = 2
@@ -77,12 +76,60 @@ theme_override_constants/separation = 6
 
 [node name="ButtonRow" type="HBoxContainer" parent="UI/HUDPanel/MarginContainer/VBoxContainer"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 10
 
 [node name="EndTurnButton" type="Button" parent="UI/HUDPanel/MarginContainer/VBoxContainer/ButtonRow"]
 layout_mode = 2
 text = "End Turn"
 
-[node name="PauseButton" type="Button" parent="UI/HUDPanel/MarginContainer/VBoxContainer/ButtonRow"]
+[node name="PauseButton" type="TextureButton" parent="UI"]
+custom_minimum_size = Vector2(120, 120)
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 72.0
+offset_bottom = 72.0
+ignore_texture_size = true
+stretch_mode = 5
+
+[node name="PauseOverlay" type="Control" parent="UI"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Dimmer" type="ColorRect" parent="UI/PauseOverlay"]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.28)
+
+[node name="CenterContainer" type="CenterContainer" parent="UI/PauseOverlay"]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="ResumeButton" type="TextureButton" parent="UI/PauseOverlay/CenterContainer"]
+custom_minimum_size = Vector2(180, 180)
 layout_mode = 2
-text = "Pause"
+ignore_texture_size = true
+stretch_mode = 5
+
+[node name="ActionLogPanel" type="PanelContainer" parent="UI"]
+visible = false
+mouse_filter = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="UI/ActionLogPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 6
+
+[node name="ActionLogLabel" type="Label" parent="UI/ActionLogPanel/MarginContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 18
