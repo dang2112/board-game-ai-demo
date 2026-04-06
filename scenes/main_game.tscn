@@ -9,6 +9,7 @@
 layout_mode = 3
 anchors_preset = 0
 script = ExtResource("1_d2op2")
+VP_COND = 4
 
 [node name="MapManager" type="Node2D" parent="."]
 script = ExtResource("1_72e8q")

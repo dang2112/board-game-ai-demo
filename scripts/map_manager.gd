@@ -23,6 +23,13 @@ func load_map(map_data):
 func get_tile(pos: Vector2i) -> Tile:
 	return tiles.get(pos, null)
 
+func get_all_victory_tiles() -> Array[Vector2i]:
+	var vt: Array[Vector2i] = [] #Vector2i
+	for pos in tiles:
+		if tiles[pos].terrain_type == 4:
+			vt.append(pos)
+	return vt
+
 func get_random_spawn(team: int, unit_manager) -> Vector2i:
 	var teamspawns = [] #Vector2i
 	var spawn_id := -(team + 1)

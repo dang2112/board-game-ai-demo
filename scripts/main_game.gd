@@ -3,6 +3,9 @@ extends Control
 const TILE_SIZE := 100
 const HUMAN_TEAM := 0
 const AI_TEAM := 1
+@export var TEAM0_POINTS := 20
+@export var TEAM1_POINTS := 20
+@export var VP_COND := 2
 
 @onready var UnitManager = $UnitManager
 @onready var MapManager = $MapManager
@@ -34,6 +37,9 @@ var selected_unit: Unit = null
 var selected_ability: Ability = null
 var turn_action_used := false
 var status_message := ""
+var team_vp = []
+var vt = []
+var team_won: int = -1
 
 func generate_army(points: int, team: int):
 	var remaining = points
@@ -62,8 +68,11 @@ func _ready() -> void:
 	PauseButton.pressed.connect(_on_pause_button_pressed)
 
 	MapManager.load_map("res://resources/map_big.gd")
-	generate_army(5, HUMAN_TEAM)
-	generate_army(5, AI_TEAM)
+	generate_army(TEAM0_POINTS, HUMAN_TEAM)
+	generate_army(TEAM1_POINTS, AI_TEAM)
+	for i in range(team_no): #from 0 to team_no - 1
+		team_vp.insert(i, 0)
+	vt = MapManager.get_all_victory_tiles()
 	start_turn()
 
 func start_turn():
@@ -76,6 +85,9 @@ func start_turn():
 		defeated_teams.append(current_team) #push this team into defeated teams if it has no units
 	
 	if defeated_teams.size() == (team_no - 1) && (defeated_teams.find(current_team) == -1):
+		team_won = current_team
+	
+	if team_won == current_team:
 		status_message = "YOU WIN!" #team wins if there are no other teams
 		_refresh_ability_panel()
 		_refresh_highlights()
@@ -104,6 +116,15 @@ func end_turn():
 	selected_unit = null
 	selected_ability = null
 	turn_action_used = false
+	#count Victory points at the end of turn
+	for pos in vt:
+		var capturing_unit = UnitManager.get_unit_at(pos)
+		if capturing_unit:
+			if capturing_unit.team == current_team:
+				team_vp[current_team] = team_vp[current_team] + 1
+	#if enough VP => WIN
+	if team_vp[current_team] >= VP_COND:
+		team_won = current_team
 	current_team = (current_team + 1) % team_no #next team, wrap if last team
 	start_turn()
 
