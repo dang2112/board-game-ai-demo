@@ -6,6 +6,10 @@ const AI_TEAM := 1
 const UI_GAP := 12
 const UI_PADDING := 12
 
+@export var TEAM0_POINTS := 20
+@export var TEAM1_POINTS := 20
+@export var VP_COND := 2
+
 @onready var UnitManager = $UnitManager
 @onready var MapManager = $MapManager
 @onready var AiController = $AiController
@@ -84,8 +88,8 @@ func _ready() -> void:
 
 	MapManager.load_map("res://resources/map_big.gd")
 	_layout_ui()
-	generate_army(20, HUMAN_TEAM)
-	generate_army(20, AI_TEAM)
+	generate_army(TEAM0_POINTS, HUMAN_TEAM)
+	generate_army(TEAM1_POINTS, AI_TEAM)
 	start_turn()
 
 func _layout_ui() -> void:
