@@ -3,6 +3,8 @@ extends Control
 const TILE_SIZE := 100
 const HUMAN_TEAM := 0
 const AI_TEAM := 1
+const UI_GAP := 12
+const UI_PADDING := 12
 
 @onready var UnitManager = $UnitManager
 @onready var MapManager = $MapManager
@@ -17,7 +19,12 @@ const AI_TEAM := 1
 @onready var AbilityTitle = $UI/HUDPanel/MarginContainer/VBoxContainer/AbilityTitle
 @onready var AbilityButtons = $UI/HUDPanel/MarginContainer/VBoxContainer/AbilityButtons
 @onready var EndTurnButton = $UI/HUDPanel/MarginContainer/VBoxContainer/ButtonRow/EndTurnButton
-@onready var PauseButton = $UI/HUDPanel/MarginContainer/VBoxContainer/ButtonRow/PauseButton
+@onready var PauseButton: TextureButton = $UI/PauseButton
+@onready var PauseOverlay = $UI/PauseOverlay
+@onready var ResumeButton: TextureButton = $UI/PauseOverlay/CenterContainer/ResumeButton
+
+const PAUSE_ICON_PATH := "res://assets/pause.png"
+const RESUME_ICON_PATH := "res://assets/resume.png"
 
 
 var unit_pool = [
@@ -34,6 +41,7 @@ var selected_unit: Unit = null
 var selected_ability: Ability = null
 var turn_action_used := false
 var status_message := ""
+var board_origin: Vector2 = Vector2.ZERO
 
 func generate_army(points: int, team: int):
 	var remaining = points
@@ -58,13 +66,77 @@ func generate_army(points: int, team: int):
 
 func _ready() -> void:
 	HUDPanel.process_mode = Node.PROCESS_MODE_ALWAYS
+	PauseButton.process_mode = Node.PROCESS_MODE_ALWAYS
+	PauseOverlay.process_mode = Node.PROCESS_MODE_ALWAYS
+	ResumeButton.process_mode = Node.PROCESS_MODE_ALWAYS
+	PauseButton.texture_normal = _load_icon(PAUSE_ICON_PATH)
+	ResumeButton.texture_normal = _load_icon(RESUME_ICON_PATH)
+	PauseButton.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	ResumeButton.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	EndTurnButton.pressed.connect(_on_end_turn_button_pressed)
 	PauseButton.pressed.connect(_on_pause_button_pressed)
+	ResumeButton.pressed.connect(_on_pause_button_pressed)
+	PauseButton.mouse_entered.connect(_on_pause_button_mouse_entered)
+	PauseButton.mouse_exited.connect(_on_pause_button_mouse_exited)
+	ResumeButton.mouse_entered.connect(_on_resume_button_mouse_entered)
+	ResumeButton.mouse_exited.connect(_on_resume_button_mouse_exited)
+	get_viewport().size_changed.connect(_layout_ui)
 
 	MapManager.load_map("res://resources/map_big.gd")
-	generate_army(5, HUMAN_TEAM)
-	generate_army(5, AI_TEAM)
+	_layout_ui()
+	generate_army(20, HUMAN_TEAM)
+	generate_army(20, AI_TEAM)
 	start_turn()
+
+func _layout_ui() -> void:
+	if MapManager == null or HUDPanel == null or PauseButton == null:
+		return
+
+	if MapManager.grid_size == Vector2i.ZERO:
+		return
+
+	var viewport_size: Vector2 = get_viewport_rect().size
+	var map_size: Vector2 = Vector2(MapManager.grid_size.x * TILE_SIZE, MapManager.grid_size.y * TILE_SIZE)
+	var panel_size: Vector2 = HUDPanel.custom_minimum_size
+	var total_width: float = map_size.x + UI_GAP + panel_size.x
+	var origin_x: float = maxf((viewport_size.x - total_width) * 0.5, float(UI_PADDING))
+	var origin_y: float = maxf((viewport_size.y - map_size.y) * 0.5, float(UI_PADDING))
+	var map_origin: Vector2 = Vector2(origin_x, origin_y)
+
+	MapManager.position = map_origin
+	UnitManager.position = map_origin
+	HUDPanel.position = Vector2(origin_x + map_size.x + UI_GAP, origin_y)
+	PauseButton.position = map_origin + Vector2(UI_PADDING, 4.0)
+	board_origin = map_origin
+	PauseOverlay.position = Vector2.ZERO
+
+func _load_icon(path: String) -> Texture2D:
+	var image: Image = Image.load_from_file(path)
+	if image == null:
+		return null
+
+	return ImageTexture.create_from_image(image)
+
+func _set_button_scale(button: TextureButton, target_scale: Vector2) -> void:
+	if button == null:
+		return
+
+	var tween := button.create_tween()
+	tween.set_trans(Tween.TRANS_SINE)
+	tween.set_ease(Tween.EASE_OUT)
+	tween.tween_property(button, "scale", target_scale, 0.12)
+
+func _on_pause_button_mouse_entered() -> void:
+	_set_button_scale(PauseButton, Vector2(1.06, 1.06))
+
+func _on_pause_button_mouse_exited() -> void:
+	_set_button_scale(PauseButton, Vector2(1.0, 1.0))
+
+func _on_resume_button_mouse_entered() -> void:
+	_set_button_scale(ResumeButton, Vector2(1.06, 1.06))
+
+func _on_resume_button_mouse_exited() -> void:
+	_set_button_scale(ResumeButton, Vector2(1.0, 1.0))
 
 func start_turn():
 	turn_action_used = false
@@ -112,9 +184,16 @@ func _unhandled_input(event):
 		return
 
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		var local_pos: Vector2 = event.position - board_origin
+		if local_pos.x < 0 or local_pos.y < 0:
+			return
+
+		if local_pos.x >= float(MapManager.grid_size.x * TILE_SIZE) or local_pos.y >= float(MapManager.grid_size.y * TILE_SIZE):
+			return
+
 		var grid_pos := Vector2i(
-			int(floor(event.position.x / TILE_SIZE)),
-			int(floor(event.position.y / TILE_SIZE))
+			int(floor(local_pos.x / TILE_SIZE)),
+			int(floor(local_pos.y / TILE_SIZE))
 		)
 		handle_board_click(grid_pos)
 
@@ -259,7 +338,8 @@ func _update_ui() -> void:
 	APLabel.text = "Team AP: %d" % _get_team_action_points(current_team)
 	ModeLabel.text = _mode_text()
 	StatusLabel.text = status_message
-	PauseButton.text = "Continue" if get_tree().paused else "Pause"
+	PauseButton.visible = not get_tree().paused
+	PauseOverlay.visible = get_tree().paused
 	EndTurnButton.disabled = current_team != HUMAN_TEAM or get_tree().paused
 
 func _selection_text() -> String:

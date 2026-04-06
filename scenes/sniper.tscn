@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://bia7xoc3bocmv"]
 
 [ext_resource type="Script" uid="uid://cn1n2x0orkd46" path="res://resources/sniper.gd" id="1_uyybc"]
-[ext_resource type="Texture2D" uid="uid://c5bep0ulvjgya" path="res://assets/thing1.png" id="2_wwo37"]
+[ext_resource type="Texture2D" uid="uid://c5bep0ulvjgya" path="res://assets/sniper1.png" id="2_wwo37"]
 
 [node name="Sniper" type="Control"]
 layout_mode = 3
@@ -65,5 +65,21 @@ vertical_alignment = 1
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 position = Vector2(50, 50)
-scale = Vector2(0.18, 0.18)
+scale = Vector2(0.24, 0.24)
 texture = ExtResource("2_wwo37")
+
+[node name="HealthBarBack" type="ColorRect" parent="."]
+layout_mode = 0
+offset_left = 12.0
+offset_top = 10.0
+offset_right = 88.0
+offset_bottom = 18.0
+color = Color(0.1, 0.12, 0.1, 0.88)
+
+[node name="HealthBarFill" type="ColorRect" parent="HealthBarBack"]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 76.0
+offset_bottom = 8.0
+color = Color(0.2, 0.88, 0.24, 0.96)
