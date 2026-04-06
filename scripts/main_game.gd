@@ -21,8 +21,10 @@ const AI_TEAM := 1
 
 
 var unit_pool = [
-	{"scene": "res://scenes/rifleman.tscn", "cost": 3}, #TODO TODO
-	{"scene": "res://scenes/sniper.tscn", "cost": 5}
+	{"scene": "res://scenes/rifleman.tscn", "cost": 3},
+	{"scene": "res://scenes/sniper.tscn", "cost": 5},
+	{"scene": "res://scenes/scout.tscn", "cost": 2},
+	{"scene": "res://scenes/rusher.tscn", "cost": 7}
 ]
 
 var current_team = HUMAN_TEAM
