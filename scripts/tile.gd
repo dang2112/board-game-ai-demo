@@ -20,6 +20,38 @@ func set_highlight(state: int) -> void:
 	highlight_state = state
 	update_visual()
 
+func to_dict() -> Dictionary:
+	return {
+		"grid_pos": [grid_pos.x, grid_pos.y],
+		"terrain_type": terrain_type,
+		"highlight_state": highlight_state,
+	}
+
+func from_dict(data: Dictionary) -> void:
+	if data.has("grid_pos"):
+		var pos = data["grid_pos"]
+		if pos is Array and pos.size() == 2:
+			grid_pos = Vector2i(int(pos[0]), int(pos[1]))
+		elif pos is Dictionary:
+			grid_pos = Vector2i(int(pos.get("x", 0)), int(pos.get("y", 0)))
+		elif pos is Vector2i:
+			grid_pos = pos
+		elif pos is Vector2:
+			grid_pos = Vector2i(pos)
+
+	if data.has("terrain_type"):
+		terrain_type = int(data["terrain_type"])
+
+	if data.has("highlight_state"):
+		highlight_state = int(data["highlight_state"])
+
+	update_visual()
+
+static func new_from_dict(data: Dictionary) -> Tile:
+	var tile := Tile.new()
+	tile.from_dict(data)
+	return tile
+
 func get_movement_cost() -> int:
 	if terrain_type < 0:
 		return 1

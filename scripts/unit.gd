@@ -6,6 +6,7 @@ var display_name := "Unit"
 var health: int = 10
 var active: int = 1 #0 means normally inactive; other integers can mean inactive due to other things
 var action_points: int = 0
+var scene_path := ""
 
 var position_on_grid: Vector2i
 
@@ -29,6 +30,123 @@ func perform_ability(ability, target):
 		return true
 	
 	return false
+
+func to_dict() -> Dictionary:
+	var ability_list := []
+	for ability in abilities:
+		if ability != null:
+			ability_list.append(_ability_to_dict(ability))
+
+	return {
+		"scene_path": scene_path,
+		"team": team,
+		"display_name": display_name,
+		"health": health,
+		"active": active,
+		"action_points": action_points,
+		"position_on_grid": [position_on_grid.x, position_on_grid.y],
+		"abilities": ability_list,
+	}
+
+func _ability_to_dict(ability: Ability) -> Dictionary:
+	var script = ability.get_script()
+	var script_path := ""
+	if script != null:
+		script_path = script.resource_path
+
+	var data := {
+		"script_path": script_path,
+	}
+
+	for prop in ability.get_property_list():
+		if prop.has("usage") and (prop["usage"] & PROPERTY_USAGE_STORAGE) == 0:
+			continue
+		var name = prop["name"]
+		if name in ["script", "owner", "owner_id", "name"]:
+			continue
+		var value = ability.get(name)
+		var t = typeof(value)
+		if t in [TYPE_NIL, TYPE_BOOL, TYPE_INT, TYPE_FLOAT, TYPE_STRING, TYPE_VECTOR2, TYPE_VECTOR2I, TYPE_COLOR, TYPE_ARRAY, TYPE_DICTIONARY]:
+			data[name] = value
+
+	return data
+
+func from_dict(data: Dictionary) -> void:
+	if data.has("scene_path"):
+		scene_path = String(data["scene_path"])
+
+	if data.has("team"):
+		team = int(data["team"])
+
+	if data.has("display_name"):
+		display_name = String(data["display_name"])
+
+	if data.has("health"):
+		health = int(data["health"])
+
+	if data.has("active"):
+		active = int(data["active"])
+
+	if data.has("action_points"):
+		action_points = int(data["action_points"])
+
+	if data.has("position_on_grid"):
+		var pos = data["position_on_grid"]
+		if pos is Array and pos.size() == 2:
+			position_on_grid = Vector2i(int(pos[0]), int(pos[1]))
+		elif pos is Dictionary:
+			position_on_grid = Vector2i(int(pos.get("x", 0)), int(pos.get("y", 0)))
+
+	abilities.clear()
+	if data.has("abilities") and data["abilities"] is Array:
+		for ability_data in data["abilities"]:
+			if ability_data is Dictionary:
+				var ability = _ability_from_dict(ability_data)
+				if ability != null:
+					abilities.append(ability)
+
+	update_visual()
+
+func _ability_from_dict(data: Dictionary):
+	if not data.has("script_path"):
+		return null
+
+	var script_path = String(data["script_path"])
+	if script_path == "":
+		return null
+
+	var script = load(script_path)
+	if script == null:
+		return null
+
+	var ability = script.new()
+	if ability == null:
+		return null
+
+	var property_names := []
+	for prop in ability.get_property_list():
+		property_names.append(prop["name"])
+
+	for key in data.keys():
+		if key == "script_path":
+			continue
+		if key in property_names:
+			ability.set(key, data[key])
+
+	return ability
+
+static func new_from_dict(data: Dictionary) -> Unit:
+	var unit: Unit = null
+	if data.has("scene_path"):
+		var path := String(data["scene_path"])
+		if path != "":
+			var scene = load(path)
+			if scene is PackedScene:
+				unit = scene.instantiate() as Unit
+	if unit == null:
+		unit = Unit.new()
+	unit.from_dict(data)
+	return unit
 
 func update_visual():
 	position = position_on_grid * 100

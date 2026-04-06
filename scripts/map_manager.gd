@@ -20,6 +20,37 @@ func load_map(map_data):
 			add_child(tile)
 			tiles[tile.grid_pos] = tile
 
+func to_dict() -> Dictionary:
+	var tile_list := []
+	for pos in tiles:
+		var tile: Tile = tiles[pos]
+		if tile != null:
+			tile_list.append(tile.to_dict())
+	return {
+		"grid_size": [grid_size.x, grid_size.y],
+		"tiles": tile_list,
+	}
+
+func from_dict(data: Dictionary) -> void:
+	# Remove any existing tiles first
+	for pos in tiles:
+		if tiles[pos] != null:
+			tiles[pos].queue_free()
+	tiles.clear()
+
+	if data.has("grid_size"):
+		var size = data["grid_size"]
+		if size is Array and size.size() == 2:
+			grid_size = Vector2i(int(size[0]), int(size[1]))
+
+	if data.has("tiles") and data["tiles"] is Array:
+		for tile_data in data["tiles"]:
+			if tile_data is Dictionary:
+				var tile = preload("res://scenes/tile.tscn").instantiate()
+				tile.from_dict(tile_data)
+				add_child(tile)
+				tiles[tile.grid_pos] = tile
+
 func get_tile(pos: Vector2i) -> Tile:
 	return tiles.get(pos, null)
 

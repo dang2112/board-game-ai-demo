@@ -128,6 +128,20 @@ func end_turn():
 	current_team = (current_team + 1) % team_no #next team, wrap if last team
 	start_turn()
 
+func _input(event):
+	if event is InputEventKey and event.pressed and not event.echo:
+		match event.keycode:
+			KEY_F5:
+				save_board_state()
+				status_message = "Game saved."
+				_update_ui()
+			KEY_F9:
+				if load_board_state():
+					status_message = "Game loaded."
+				else:
+					status_message = "Load failed."
+				_update_ui()
+
 func _unhandled_input(event):
 	if get_tree().paused or current_team != HUMAN_TEAM or turn_action_used:
 		return
@@ -340,3 +354,69 @@ func _on_pause_button_pressed() -> void:
 
 	if not get_tree().paused and current_team == AI_TEAM:
 		AiController.call_deferred("take_turn")
+
+func to_dict() -> Dictionary:
+	return {
+		"board": MapManager.to_dict(),
+		"current_team": current_team,
+		"team_no": team_no,
+		"team_vp": team_vp.duplicate(),
+		"defeated_teams": defeated_teams.duplicate(),
+		"team_won": team_won,
+		"status_message": status_message,
+		"units": UnitManager.to_dict(),
+	}
+
+func from_dict(data: Dictionary) -> void:
+	current_team = int(data.get("current_team", current_team))
+	team_no = int(data.get("team_no", team_no))
+	team_vp = data.get("team_vp", []) if data.has("team_vp") else []
+	defeated_teams = data.get("defeated_teams", []) if data.has("defeated_teams") else []
+	team_won = int(data.get("team_won", team_won))
+	status_message = String(data.get("status_message", status_message))
+
+	if data.has("board") and data["board"] is Dictionary:
+		MapManager.from_dict(data["board"])
+	vt = MapManager.get_all_victory_tiles()
+
+	if data.has("units") and data["units"] is Dictionary:
+		UnitManager.from_dict(data["units"])
+
+	selected_unit = null
+	selected_ability = null
+	turn_action_used = false
+
+	_refresh_ability_panel()
+	_refresh_highlights()
+	_update_ui()
+
+func save_board_state(path: String = "user://board_save.tres"):
+	var state = BoardState.new()
+	var data = to_dict()
+	state.board = data["board"]
+	state.current_team = data["current_team"]
+	state.team_no = data["team_no"]
+	state.team_vp = data["team_vp"]
+	state.defeated_teams = data["defeated_teams"]
+	state.team_won = data["team_won"]
+	state.status_message = data["status_message"]
+	state.units = data["units"]
+	ResourceSaver.save(state, path)
+
+func load_board_state(path: String = "user://board_save.tres") -> bool:
+	var resource = ResourceLoader.load(path)
+	if resource == null or not resource is BoardState:
+		return false
+
+	var data := {
+		"board": resource.board,
+		"current_team": resource.current_team,
+		"team_no": resource.team_no,
+		"team_vp": resource.team_vp,
+		"defeated_teams": resource.defeated_teams,
+		"team_won": resource.team_won,
+		"status_message": resource.status_message,
+		"units": resource.units,
+	}
+	from_dict(data)
+	return true
