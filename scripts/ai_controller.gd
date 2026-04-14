@@ -469,6 +469,7 @@ func _apply_real_action(action: Dictionary, game_manager) -> int:
 			if not actor.perform_ability(ability, target):
 				return 0
 
+	actor.action_points = 0
 	return action_cost
 
 func _action_cost_for_state(state: Dictionary, action: Dictionary) -> int:

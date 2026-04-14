@@ -27,7 +27,7 @@ anchors_preset = 0
 offset_right = 40.0
 offset_bottom = 40.0
 script = ExtResource("4_0rdsr")
-ai_mode = 2
+ai_mode = 1
 
 [node name="UI" type="CanvasLayer" parent="."]
 
