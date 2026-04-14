@@ -339,7 +339,7 @@ func _submit_player_action(action: Dictionary) -> void:
 		_broadcast_state_sync()
 
 func host_online_match(port: int = NetworkManager.DEFAULT_PORT) -> bool:
-	var success := NetworkManager.host_match(port)
+	var success: bool = NetworkManager.host_match(port)
 	if success:
 		multiplayer_pending = true
 		multiplayer_enabled = false
@@ -351,7 +351,7 @@ func host_online_match(port: int = NetworkManager.DEFAULT_PORT) -> bool:
 	return success
 
 func join_online_match(host: String, port: int = NetworkManager.DEFAULT_PORT) -> bool:
-	var success := NetworkManager.join_match(host, port)
+	var success: bool = NetworkManager.join_match(host, port)
 	if success:
 		multiplayer_pending = true
 		multiplayer_enabled = false
