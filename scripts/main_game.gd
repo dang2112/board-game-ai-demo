@@ -13,6 +13,7 @@ const UI_PADDING := 12
 @onready var UnitManager = $UnitManager
 @onready var MapManager = $MapManager
 @onready var AiController = $AiController
+@onready var NetworkManager = $NetworkManager
 
 @onready var HUDPanel = $UI/HUDPanel
 @onready var TurnLabel = $UI/HUDPanel/MarginContainer/VBoxContainer/TurnLabel
@@ -24,6 +25,13 @@ const UI_PADDING := 12
 @onready var AbilityButtons = $UI/HUDPanel/MarginContainer/VBoxContainer/AbilityButtons
 @onready var EndTurnButton = $UI/HUDPanel/MarginContainer/VBoxContainer/ButtonRow/EndTurnButton
 @onready var PauseButton: TextureButton = $UI/PauseButton
+@onready var MultiplayerPanel: PanelContainer = $UI/MultiplayerPanel
+@onready var HostInput: LineEdit = $UI/MultiplayerPanel/MarginContainer/VBoxContainer/HostInput
+@onready var PortInput: LineEdit = $UI/MultiplayerPanel/MarginContainer/VBoxContainer/PortInput
+@onready var HostButton: Button = $UI/MultiplayerPanel/MarginContainer/VBoxContainer/ButtonRow/HostButton
+@onready var JoinButton: Button = $UI/MultiplayerPanel/MarginContainer/VBoxContainer/ButtonRow/JoinButton
+@onready var DisconnectButton: Button = $UI/MultiplayerPanel/MarginContainer/VBoxContainer/ButtonRow/DisconnectButton
+@onready var MultiplayerInfoLabel: Label = $UI/MultiplayerPanel/MarginContainer/VBoxContainer/MultiplayerInfoLabel
 @onready var PauseOverlay = $UI/PauseOverlay
 @onready var ResumeButton: TextureButton = $UI/PauseOverlay/CenterContainer/ResumeButton
 @onready var ActionLogPanel: PanelContainer = $UI/ActionLogPanel
@@ -59,6 +67,9 @@ var action_log_tween: Tween = null
 var map_visual_scale: float = 1.0
 var local_team := HUMAN_TEAM
 var match_state := MatchState.new()
+var multiplayer_enabled := false
+var multiplayer_pending := false
+var remote_peer_id := -1
 
 func generate_army(points: int, team: int) -> void:
 	var remaining = points
@@ -80,6 +91,7 @@ func generate_army(points: int, team: int) -> void:
 
 func _ready() -> void:
 	HUDPanel.process_mode = Node.PROCESS_MODE_ALWAYS
+	MultiplayerPanel.process_mode = Node.PROCESS_MODE_ALWAYS
 	PauseButton.process_mode = Node.PROCESS_MODE_ALWAYS
 	PauseOverlay.process_mode = Node.PROCESS_MODE_ALWAYS
 	ResumeButton.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -91,6 +103,9 @@ func _ready() -> void:
 	PauseButton.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	ResumeButton.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	EndTurnButton.pressed.connect(_on_end_turn_button_pressed)
+	HostButton.pressed.connect(_on_host_button_pressed)
+	JoinButton.pressed.connect(_on_join_button_pressed)
+	DisconnectButton.pressed.connect(_on_disconnect_button_pressed)
 	PauseButton.pressed.connect(_on_pause_button_pressed)
 	ResumeButton.pressed.connect(_on_pause_button_pressed)
 	PlayAgainButton.pressed.connect(_on_play_again_button_pressed)
@@ -99,6 +114,14 @@ func _ready() -> void:
 	ResumeButton.mouse_entered.connect(_on_resume_button_mouse_entered)
 	ResumeButton.mouse_exited.connect(_on_resume_button_mouse_exited)
 	get_viewport().size_changed.connect(_layout_ui)
+	NetworkManager.hosting_started.connect(_on_hosting_started)
+	NetworkManager.hosting_failed.connect(_on_hosting_failed)
+	NetworkManager.connected_to_server.connect(_on_connected_to_server)
+	NetworkManager.connection_failed.connect(_on_connection_failed)
+	NetworkManager.disconnected_from_server.connect(_on_disconnected_from_server)
+	NetworkManager.peer_connected_to_match.connect(_on_peer_connected_to_match)
+	NetworkManager.peer_disconnected_from_match.connect(_on_peer_disconnected_from_match)
+	NetworkManager.network_message_received.connect(_on_network_message_received)
 	MapManager.load_map("res://resources/map_big.gd")
 	_layout_ui()
 	generate_army(TEAM0_POINTS, HUMAN_TEAM)
@@ -107,6 +130,7 @@ func _ready() -> void:
 	match_state.reset(team_no, HUMAN_TEAM, "Blue units are yours. Click a blue unit, then choose an ability.")
 	_sync_from_match_state()
 	_sync_victory_overlay()
+	_update_multiplayer_panel()
 	start_turn()
 
 func _layout_ui() -> void:
@@ -130,7 +154,8 @@ func _layout_ui() -> void:
 	MapManager.scale = Vector2.ONE * map_visual_scale
 	UnitManager.scale = Vector2.ONE * map_visual_scale
 	HUDPanel.position = Vector2(origin_x + map_size.x + UI_GAP, origin_y)
-	PauseButton.position = HUDPanel.position + Vector2(0.0, HUDPanel.get_combined_minimum_size().y + UI_GAP)
+	MultiplayerPanel.position = Vector2(HUDPanel.position.x, HUDPanel.position.y + HUDPanel.get_combined_minimum_size().y + UI_GAP)
+	PauseButton.position = MultiplayerPanel.position + Vector2(0.0, MultiplayerPanel.get_combined_minimum_size().y + UI_GAP)
 	if ActionLogPanel != null and ActionLogPanel.visible:
 		ActionLogPanel.position = map_origin + Vector2(16, 16)
 		ActionLogPanel.size = ActionLogPanel.get_combined_minimum_size()
@@ -205,7 +230,7 @@ func start_turn() -> void:
 	_refresh_ability_panel()
 	_refresh_highlights()
 	_update_ui()
-	if current_team == AI_TEAM and not get_tree().paused and not game_over:
+	if current_team == AI_TEAM and not get_tree().paused and not game_over and not _is_online_mode():
 		AiController.call_deferred("take_turn")
 
 func end_turn() -> void:
@@ -236,7 +261,7 @@ func _input(event) -> void:
 				_update_ui()
 
 func _unhandled_input(event) -> void:
-	if game_over or get_tree().paused or current_team != local_team or _get_team_action_points(current_team) <= 0:
+	if game_over or get_tree().paused or multiplayer_pending or current_team != local_team or _get_team_action_points(current_team) <= 0:
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var local_pos: Vector2 = event.position - board_origin
@@ -266,7 +291,7 @@ func handle_board_click(grid_pos: Vector2i) -> void:
 		status_message = "Selected ability is unavailable."
 		_update_ui()
 		return
-	apply_match_action(MatchRules.make_action(selected_unit.position_on_grid, ability_index, grid_pos))
+	_submit_player_action(MatchRules.make_action(selected_unit.position_on_grid, ability_index, grid_pos))
 
 func apply_match_action(action: Dictionary) -> Dictionary:
 	var result = MatchRules.apply_action(self, match_state, action)
@@ -296,6 +321,53 @@ func apply_match_action(action: Dictionary) -> Dictionary:
 
 func get_legal_actions_for_team(team: int) -> Array:
 	return MatchRules.get_legal_actions(self, match_state, team)
+
+func _submit_player_action(action: Dictionary) -> void:
+	if multiplayer_pending:
+		return
+	if _is_online_mode() and not NetworkManager.is_hosting():
+		status_message = "Sending action to host..."
+		_update_ui()
+		NetworkManager.send_message_to_server({
+			"type": "submit_action",
+			"action": action,
+		})
+		return
+
+	var result = apply_match_action(action)
+	if _is_online_mode() and NetworkManager.is_hosting() and bool(result.get("ok", false)):
+		_broadcast_state_sync()
+
+func host_online_match(port: int = NetworkManager.DEFAULT_PORT) -> bool:
+	var success := NetworkManager.host_match(port)
+	if success:
+		multiplayer_pending = true
+		multiplayer_enabled = false
+		local_team = HUMAN_TEAM
+		remote_peer_id = -1
+		status_message = "Hosting match. Waiting for another player..."
+		_update_multiplayer_panel()
+		_update_ui()
+	return success
+
+func join_online_match(host: String, port: int = NetworkManager.DEFAULT_PORT) -> bool:
+	var success := NetworkManager.join_match(host, port)
+	if success:
+		multiplayer_pending = true
+		multiplayer_enabled = false
+		local_team = -1
+		status_message = "Connecting to host..."
+		_update_multiplayer_panel()
+		_update_ui()
+	return success
+
+func stop_online_match() -> void:
+	NetworkManager.stop_networking()
+	multiplayer_enabled = false
+	multiplayer_pending = false
+	remote_peer_id = -1
+	local_team = HUMAN_TEAM
+	_update_multiplayer_panel()
 
 func select_unit(unit: Unit) -> void:
 	if unit == null or unit.team != current_team or not unit.can_act() or _get_team_action_points(current_team) <= 0:
@@ -388,7 +460,10 @@ func _update_ui() -> void:
 			VictorySubtitle.text = "Game over"
 		if PlayAgainButton != null:
 			PlayAgainButton.visible = game_over
-	EndTurnButton.disabled = current_team != local_team or get_tree().paused or game_over or _get_team_action_points(current_team) <= 0
+	EndTurnButton.disabled = multiplayer_pending or current_team != local_team or get_tree().paused or game_over or _get_team_action_points(current_team) <= 0
+	HostButton.disabled = multiplayer_pending or multiplayer_enabled
+	JoinButton.disabled = multiplayer_pending or multiplayer_enabled
+	DisconnectButton.disabled = not _is_online_mode()
 
 func _selection_text() -> String:
 	if selected_unit == null:
@@ -398,9 +473,13 @@ func _selection_text() -> String:
 func _mode_text() -> String:
 	if get_tree().paused:
 		return "Mode: paused"
+	if multiplayer_pending:
+		return "Mode: waiting for online opponent"
+	if _is_online_mode() and current_team != local_team:
+		return "Mode: waiting for opponent"
 	if _get_team_action_points(current_team) <= 0:
 		return "Mode: AP exhausted, ending turn"
-	if current_team == AI_TEAM:
+	if current_team == AI_TEAM and not _is_online_mode():
 		return "Mode: AI is thinking... (%s)" % AiController.get_mode_name()
 	if selected_unit == null:
 		return "Mode: select a unit"
@@ -414,6 +493,8 @@ func _mode_text() -> String:
 	return "Mode: ready"
 
 func _team_name(team: int) -> String:
+	if _is_online_mode():
+		return "Blue" if team == HUMAN_TEAM else "Red"
 	match team:
 		HUMAN_TEAM:
 			return "Player"
@@ -454,10 +535,10 @@ func spend_team_action_points(team: int, amount: int) -> void:
 	_sync_to_match_state()
 
 func _on_end_turn_button_pressed() -> void:
-	if current_team == local_team and not get_tree().paused and not game_over:
+	if current_team == local_team and not get_tree().paused and not game_over and not multiplayer_pending:
 		status_message = "Ending turn..."
 		_sync_to_match_state()
-		apply_match_action(MatchRules.make_end_turn_action())
+		_submit_player_action(MatchRules.make_end_turn_action())
 
 func _on_pause_button_pressed() -> void:
 	if game_over:
@@ -465,12 +546,166 @@ func _on_pause_button_pressed() -> void:
 	get_tree().paused = not get_tree().paused
 	status_message = "Paused. Press Continue to resume." if get_tree().paused else "Resumed."
 	_update_ui()
-	if not get_tree().paused and current_team == AI_TEAM:
+	if not get_tree().paused and current_team == AI_TEAM and not _is_online_mode():
 		AiController.call_deferred("take_turn")
 
 func _on_play_again_button_pressed() -> void:
 	get_tree().paused = false
 	get_tree().reload_current_scene()
+
+func _on_host_button_pressed() -> void:
+	host_online_match(_read_port_input())
+
+func _on_join_button_pressed() -> void:
+	join_online_match(HostInput.text.strip_edges(), _read_port_input())
+
+func _on_disconnect_button_pressed() -> void:
+	stop_online_match()
+	status_message = "Disconnected from match."
+	_update_ui()
+
+func _on_hosting_started(port: int) -> void:
+	status_message = "Hosting match on port %d." % port
+	_update_multiplayer_panel()
+	_update_ui()
+
+func _on_hosting_failed(error_code: int) -> void:
+	status_message = "Failed to host match. Error %d." % error_code
+	multiplayer_pending = false
+	multiplayer_enabled = false
+	_update_multiplayer_panel()
+	_update_ui()
+
+func _on_connected_to_server() -> void:
+	status_message = "Connected to host."
+	_update_multiplayer_panel()
+	NetworkManager.send_message_to_server({
+		"type": "join_request",
+	})
+	_update_ui()
+
+func _on_connection_failed() -> void:
+	status_message = "Connection failed."
+	multiplayer_pending = false
+	multiplayer_enabled = false
+	local_team = HUMAN_TEAM
+	_update_multiplayer_panel()
+	_update_ui()
+
+func _on_disconnected_from_server() -> void:
+	status_message = "Disconnected from match."
+	multiplayer_pending = false
+	multiplayer_enabled = false
+	remote_peer_id = -1
+	local_team = HUMAN_TEAM
+	_update_multiplayer_panel()
+	_update_ui()
+
+func _on_peer_connected_to_match(peer_id: int) -> void:
+	if NetworkManager.is_hosting():
+		remote_peer_id = peer_id
+		status_message = "Peer %d joined the match." % peer_id
+		_update_multiplayer_panel()
+		_update_ui()
+
+func _on_peer_disconnected_from_match(peer_id: int) -> void:
+	status_message = "Peer %d left the match." % peer_id
+	if remote_peer_id == peer_id:
+		remote_peer_id = -1
+		multiplayer_pending = true
+		multiplayer_enabled = false
+	_update_multiplayer_panel()
+	_update_ui()
+
+func _on_network_message_received(message: Dictionary, from_peer: int) -> void:
+	var message_type := String(message.get("type", ""))
+	match message_type:
+		"join_request":
+			if NetworkManager.is_hosting():
+				_handle_join_request(from_peer)
+		"match_start":
+			_handle_match_start(message)
+		"submit_action":
+			if NetworkManager.is_hosting():
+				_handle_remote_submit_action(message, from_peer)
+		"state_sync":
+			_handle_state_sync(message)
+
+func _handle_join_request(from_peer: int) -> void:
+	remote_peer_id = from_peer
+	multiplayer_pending = false
+	multiplayer_enabled = true
+	local_team = HUMAN_TEAM
+	_sync_to_match_state()
+	NetworkManager.send_message_to_peer(from_peer, {
+		"type": "match_start",
+		"team": AI_TEAM,
+		"state": to_dict(),
+	})
+	status_message = "Online match started. You are Team 0."
+	_update_multiplayer_panel()
+	_update_ui()
+
+func _handle_match_start(message: Dictionary) -> void:
+	multiplayer_pending = false
+	multiplayer_enabled = true
+	local_team = int(message.get("team", AI_TEAM))
+	if message.has("state") and message["state"] is Dictionary:
+		from_dict(message["state"])
+	status_message = "Online match started. You are Team %d." % local_team
+	_update_multiplayer_panel()
+	_update_ui()
+
+func _handle_remote_submit_action(message: Dictionary, from_peer: int) -> void:
+	if from_peer != remote_peer_id:
+		return
+	var submitting_team := AI_TEAM
+	if current_team != submitting_team:
+		return
+	var action = message.get("action", {})
+	if not (action is Dictionary):
+		return
+	var result = apply_match_action(action)
+	if bool(result.get("ok", false)):
+		_broadcast_state_sync()
+
+func _handle_state_sync(message: Dictionary) -> void:
+	if not message.has("state") or not message["state"] is Dictionary:
+		return
+	from_dict(message["state"])
+	_update_multiplayer_panel()
+	_update_ui()
+
+func _broadcast_state_sync() -> void:
+	if not NetworkManager.is_hosting():
+		return
+	_sync_to_match_state()
+	NetworkManager.broadcast_message({
+		"type": "state_sync",
+		"state": to_dict(),
+	})
+
+func _read_port_input() -> int:
+	var parsed := int(PortInput.text.strip_edges())
+	if parsed <= 0:
+		return NetworkManager.DEFAULT_PORT
+	return parsed
+
+func _is_online_mode() -> bool:
+	return multiplayer_enabled or multiplayer_pending
+
+func _update_multiplayer_panel() -> void:
+	if MultiplayerInfoLabel == null:
+		return
+	if multiplayer_pending and NetworkManager.is_hosting():
+		MultiplayerInfoLabel.text = "Hosting on port %d. Waiting for opponent..." % _read_port_input()
+	elif multiplayer_pending:
+		MultiplayerInfoLabel.text = "Connecting to %s:%d..." % [HostInput.text.strip_edges(), _read_port_input()]
+	elif multiplayer_enabled:
+		MultiplayerInfoLabel.text = "Connected. You are Team %d." % local_team
+	else:
+		MultiplayerInfoLabel.text = "Offline"
+	_update_ui()
 
 func to_dict() -> Dictionary:
 	_sync_to_match_state()

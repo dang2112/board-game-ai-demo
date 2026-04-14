@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3 uid="uid://da2tgbgkcc6lf"]
+[gd_scene load_steps=6 format=3 uid="uid://da2tgbgkcc6lf"]
 
 [ext_resource type="Script" uid="uid://dch0aroach24n" path="res://scripts/map_manager.gd" id="1_72e8q"]
 [ext_resource type="Script" uid="uid://se1ovt2eedak" path="res://scripts/main_game.gd" id="1_d2op2"]
 [ext_resource type="Script" uid="uid://u0ntiwsgru00" path="res://scripts/unit_manager.gd" id="2_d2op2"]
 [ext_resource type="Script" uid="uid://iyna05ijldts" path="res://scripts/ai_controller.gd" id="4_0rdsr"]
+[ext_resource type="Script" uid="uid://cavrc6dlyqcsk" path="res://scripts/network_manager.gd" id="5_nw0rk"]
 
 [node name="GameManager" type="Control"]
 layout_mode = 3
@@ -28,6 +29,9 @@ offset_right = 40.0
 offset_bottom = 40.0
 script = ExtResource("4_0rdsr")
 ai_mode = 1
+
+[node name="NetworkManager" type="Node" parent="."]
+script = ExtResource("5_nw0rk")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
@@ -91,6 +95,64 @@ offset_right = 72.0
 offset_bottom = 72.0
 ignore_texture_size = true
 stretch_mode = 5
+
+[node name="MultiplayerPanel" type="PanelContainer" parent="UI"]
+custom_minimum_size = Vector2(348, 0)
+offset_right = 348.0
+offset_bottom = 220.0
+
+[node name="MarginContainer" type="MarginContainer" parent="UI/MultiplayerPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="VBoxContainer" type="VBoxContainer" parent="UI/MultiplayerPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TitleLabel" type="Label" parent="UI/MultiplayerPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Online Match"
+
+[node name="HostLabel" type="Label" parent="UI/MultiplayerPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Host / IP"
+
+[node name="HostInput" type="LineEdit" parent="UI/MultiplayerPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "127.0.0.1"
+placeholder_text = "Host IP"
+
+[node name="PortLabel" type="Label" parent="UI/MultiplayerPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Port"
+
+[node name="PortInput" type="LineEdit" parent="UI/MultiplayerPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "24567"
+placeholder_text = "Port"
+
+[node name="ButtonRow" type="HBoxContainer" parent="UI/MultiplayerPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="HostButton" type="Button" parent="UI/MultiplayerPanel/MarginContainer/VBoxContainer/ButtonRow"]
+layout_mode = 2
+text = "Host"
+
+[node name="JoinButton" type="Button" parent="UI/MultiplayerPanel/MarginContainer/VBoxContainer/ButtonRow"]
+layout_mode = 2
+text = "Join"
+
+[node name="DisconnectButton" type="Button" parent="UI/MultiplayerPanel/MarginContainer/VBoxContainer/ButtonRow"]
+layout_mode = 2
+text = "Disconnect"
+
+[node name="MultiplayerInfoLabel" type="Label" parent="UI/MultiplayerPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Offline"
 
 [node name="PauseOverlay" type="Control" parent="UI"]
 visible = false
