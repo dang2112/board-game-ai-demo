@@ -63,10 +63,14 @@ func get_all_victory_tiles() -> Array[Vector2i]:
 
 func get_random_spawn(team: int, unit_manager) -> Vector2i:
 	var teamspawns = [] #Vector2i
-	var spawn_id := -(team + 1)
+	var spawn_id: int
+	if team == 2:
+		spawn_id = -2 #joiner uses AI's spawn tiles
+	else:
+		spawn_id = -(team + 1)
 	for pos in tiles:
 		if tiles[pos].terrain_type == spawn_id and unit_manager.get_unit_at(pos) == null:
-			#team 0 uses -1, team 1 uses -2, etc.
+			#team 0 uses -1, team 1 uses -2, team 2 uses -2 (AI spawns)
 			teamspawns.append(pos)
 
 	if teamspawns.is_empty():

@@ -7,9 +7,10 @@ var team_no: int = 2
 var team_vp: Array = []
 var team_ap: Array = []
 var defeated_teams: Array = []
-var team_won: int = -1
+var team_won: int = -2
 var status_message: String = ""
 var game_over: bool = false
+var units: Array = []
 
 func reset(team_count: int, starting_team: int, starting_status: String) -> void:
 	current_team = starting_team
@@ -20,7 +21,7 @@ func reset(team_count: int, starting_team: int, starting_status: String) -> void
 		team_vp.append(0)
 		team_ap.append(0)
 	defeated_teams.clear()
-	team_won = -1
+	team_won = -2
 	status_message = starting_status
 	game_over = false
 
@@ -45,4 +46,4 @@ func load_dict(data: Dictionary) -> void:
 	defeated_teams = data.get("defeated_teams", []).duplicate(true) if data.has("defeated_teams") else []
 	team_won = int(data.get("team_won", team_won))
 	status_message = String(data.get("status_message", status_message))
-	game_over = team_won != -1
+	game_over = team_won != -2

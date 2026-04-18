@@ -47,6 +47,12 @@ func get_units_for_team(team):
 	cleanup_units()
 	return units.filter(func(u): return u.team == team)
 
+func _just_make_all_units_negative():
+	cleanup_units()
+	for unit in units:
+		if unit.team == 1:
+			unit.team = -1
+
 func get_unit_at(grid_pos: Vector2i):
 	cleanup_units()
 	for unit in units:

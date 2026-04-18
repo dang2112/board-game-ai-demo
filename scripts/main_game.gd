@@ -61,7 +61,7 @@ var board_origin: Vector2 = Vector2.ZERO
 var team_vp = []
 var team_ap = []
 var vt = []
-var team_won: int = -1
+var team_won: int = -2
 var game_over := false
 var action_log_tween: Tween = null
 var map_visual_scale: float = 1.0
@@ -127,7 +127,8 @@ func _ready() -> void:
 	generate_army(TEAM0_POINTS, HUMAN_TEAM)
 	generate_army(TEAM1_POINTS, AI_TEAM)
 	vt = MapManager.get_all_victory_tiles()
-	match_state.reset(team_no, HUMAN_TEAM, "Blue units are yours. Click a blue unit, then choose an ability.")
+	match_state.reset(team_no, HUMAN_TEAM, "Blue units are yours. Click a Blue unit, then choose an ability.")
+	match_state.units = UnitManager.units
 	_sync_from_match_state()
 	_sync_victory_overlay()
 	_update_multiplayer_panel()
@@ -224,8 +225,17 @@ func _on_resume_button_mouse_exited() -> void:
 	_set_button_scale(ResumeButton, Vector2(1.0, 1.0))
 
 func start_turn() -> void:
+	print("=== START_TURN CALLED ===")
+	print("current_team before MatchRules: ", current_team)
+	print("team_ap before MatchRules: ", team_ap)
 	MatchRules.start_turn(self, match_state)
+	print("current_team after MatchRules: ", current_team)
+	print("match_state.team_ap after MatchRules: ", match_state.team_ap)
+	print("team_ap after MatchRules (before sync): ", team_ap)
+	var current_units = UnitManager.get_units_for_team(current_team)
+	print("Units for team ", current_team, ": ", current_units.size())
 	_sync_from_match_state()
+	print("team_ap after sync: ", team_ap)
 	_sync_victory_overlay()
 	_refresh_ability_panel()
 	_refresh_highlights()
@@ -261,8 +271,17 @@ func _input(event) -> void:
 				_update_ui()
 
 func _unhandled_input(event) -> void:
-	if game_over or get_tree().paused or multiplayer_pending or current_team != local_team or _get_team_action_points(current_team) <= 0:
+	if selected_unit != null and _get_team_action_points(current_team) <= 0:
 		return
+	if game_over or get_tree().paused or multiplayer_pending:
+		return
+	if _is_online_mode():
+		var can_play := (current_team == local_team) or (current_team == 0 and local_team == 2) or (current_team == 2 and local_team == 0)
+		if not can_play:
+			return
+	else:
+		if current_team != local_team:
+			return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var local_pos: Vector2 = event.position - board_origin
 		if local_pos.x < 0 or local_pos.y < 0:
@@ -275,13 +294,22 @@ func _unhandled_input(event) -> void:
 
 func handle_board_click(grid_pos: Vector2i) -> void:
 	var clicked_unit = UnitManager.get_unit_at(grid_pos)
+	var is_my_unit := false
+	if clicked_unit != null:
+		if _is_online_mode():
+			is_my_unit = (clicked_unit.team == current_team) or (current_team == 0 and local_team == 2 and clicked_unit.team == 0) or (current_team == 2 and local_team == 0 and clicked_unit.team == 2)
+		else:
+			is_my_unit = clicked_unit.team == current_team
+	
 	if selected_unit == null:
-		if clicked_unit != null and clicked_unit.team == current_team and clicked_unit.can_act():
+		if clicked_unit != null and is_my_unit and clicked_unit.can_act():
 			select_unit(clicked_unit)
 		return
-	if clicked_unit != null and clicked_unit.team == current_team and clicked_unit.can_act():
+	
+	if clicked_unit != null and is_my_unit and clicked_unit.can_act():
 		select_unit(clicked_unit)
 		return
+	
 	if selected_ability == null:
 		status_message = "Choose an ability first."
 		_update_ui()
@@ -307,6 +335,10 @@ func apply_match_action(action: Dictionary) -> Dictionary:
 	if result.has("message") and result.has("board_pos"):
 		announce_action(String(result["message"]), result["board_pos"])
 	if bool(result.get("end_turn", false)):
+		if _is_online_mode():
+			_sync_to_match_state()
+			_broadcast_state_sync()
+			return result
 		start_turn()
 		return result
 	selected_unit = null
@@ -316,6 +348,9 @@ func apply_match_action(action: Dictionary) -> Dictionary:
 	_refresh_highlights()
 	_update_ui()
 	if bool(result.get("auto_end_turn", false)) and not game_over:
+		if _is_online_mode():
+			_broadcast_state_sync()
+			return result
 		end_turn()
 	return result
 
@@ -335,7 +370,7 @@ func _submit_player_action(action: Dictionary) -> void:
 		return
 
 	var result = apply_match_action(action)
-	if _is_online_mode() and NetworkManager.is_hosting() and bool(result.get("ok", false)):
+	if _is_online_mode() and bool(result.get("ok", false)):
 		_broadcast_state_sync()
 
 func host_online_match(port: int = NetworkManager.DEFAULT_PORT) -> bool:
@@ -344,6 +379,7 @@ func host_online_match(port: int = NetworkManager.DEFAULT_PORT) -> bool:
 		multiplayer_pending = true
 		multiplayer_enabled = false
 		local_team = HUMAN_TEAM
+		team_no = 3
 		remote_peer_id = -1
 		status_message = "Hosting match. Waiting for another player..."
 		_update_multiplayer_panel()
@@ -355,7 +391,7 @@ func join_online_match(host: String, port: int = NetworkManager.DEFAULT_PORT) ->
 	if success:
 		multiplayer_pending = true
 		multiplayer_enabled = false
-		local_team = -1
+		local_team = 2
 		status_message = "Connecting to host..."
 		_update_multiplayer_panel()
 		_update_ui()
@@ -370,7 +406,7 @@ func stop_online_match() -> void:
 	_update_multiplayer_panel()
 
 func select_unit(unit: Unit) -> void:
-	if unit == null or unit.team != current_team or not unit.can_act() or _get_team_action_points(current_team) <= 0:
+	if unit == null or not unit.can_act():
 		return
 	if selected_unit == unit:
 		selected_unit = null
@@ -460,7 +496,10 @@ func _update_ui() -> void:
 			VictorySubtitle.text = "Game over"
 		if PlayAgainButton != null:
 			PlayAgainButton.visible = game_over
-	EndTurnButton.disabled = multiplayer_pending or current_team != local_team or get_tree().paused or game_over or _get_team_action_points(current_team) <= 0
+	EndTurnButton.disabled = multiplayer_pending or get_tree().paused or game_over or _get_team_action_points(current_team) <= 0
+	if _is_online_mode():
+		var can_end := (current_team == local_team) or (current_team == 0 and local_team == 2) or (current_team == 2 and local_team == 0)
+		EndTurnButton.disabled = EndTurnButton.disabled or not can_end
 	HostButton.disabled = multiplayer_pending or multiplayer_enabled
 	JoinButton.disabled = multiplayer_pending or multiplayer_enabled
 	DisconnectButton.disabled = not _is_online_mode()
@@ -494,7 +533,13 @@ func _mode_text() -> String:
 
 func _team_name(team: int) -> String:
 	if _is_online_mode():
-		return "Blue" if team == HUMAN_TEAM else "Red"
+		match team:
+			HUMAN_TEAM:
+				return "Blue"
+			2:
+				return "Red"
+			_:
+				return "Team %d" % team
 	match team:
 		HUMAN_TEAM:
 			return "Player"
@@ -504,13 +549,23 @@ func _team_name(team: int) -> String:
 			return "Team %d" % team
 
 func _victory_message(team: int) -> String:
-	if team == HUMAN_TEAM:
-		return "YOU WIN!"
-	if team == AI_TEAM:
-		return "AI WINS!"
-	return "%s WINS!" % _team_name(team)
+	if _is_online_mode():
+		if team == local_team:
+			return "YOU WIN!"
+		return "YOU LOSE!"
+	match team:
+		HUMAN_TEAM:
+			return "Player Wins!"
+		AI_TEAM:
+			return "AI Wins!"
+		_:
+			return "Team %d Wins!" % team
 
 func _victory_color(team: int) -> Color:
+	if _is_online_mode():
+		if team == local_team:
+			return Color(1.0, 0.85, 0.2)
+		return Color(1.0, 0.25, 0.25)
 	if team == HUMAN_TEAM:
 		return Color(1.0, 0.85, 0.2)
 	if team == AI_TEAM:
@@ -518,6 +573,8 @@ func _victory_color(team: int) -> Color:
 	return Color.WHITE
 
 func _get_team_action_points(team: int) -> int:
+	if team == 2:
+		team = 2
 	if team < 0 or team >= team_ap.size():
 		return 0
 	return int(team_ap[team])
@@ -526,6 +583,8 @@ func get_team_action_points(team: int) -> int:
 	return _get_team_action_points(team)
 
 func spend_team_action_points(team: int, amount: int) -> void:
+	if team == 2:
+		team = 2
 	if team < 0 or team >= team_ap.size():
 		return
 	team_ap[team] = maxi(int(team_ap[team]) - maxi(amount, 0), 0)
@@ -636,12 +695,23 @@ func _handle_join_request(from_peer: int) -> void:
 	multiplayer_pending = false
 	multiplayer_enabled = true
 	local_team = HUMAN_TEAM
+	team_no = 3
+	team_ap.resize(3)
+	team_ap[0] = UnitManager.get_units_for_team(0).size()
+	team_ap[1] = 0
+	for unit in UnitManager.units:
+		if unit.team == 1:
+			unit.team = 2
+	team_ap[2] = UnitManager.get_units_for_team(2).size()
 	_sync_to_match_state()
 	NetworkManager.send_message_to_peer(from_peer, {
 		"type": "match_start",
-		"team": AI_TEAM,
+		"team": 2,
 		"state": to_dict(),
 	})
+	status_message = "Online match started. You are Team 0."
+	_update_multiplayer_panel()
+	_update_ui()
 	status_message = "Online match started. You are Team 0."
 	_update_multiplayer_panel()
 	_update_ui()
@@ -659,8 +729,7 @@ func _handle_match_start(message: Dictionary) -> void:
 func _handle_remote_submit_action(message: Dictionary, from_peer: int) -> void:
 	if from_peer != remote_peer_id:
 		return
-	var submitting_team := AI_TEAM
-	if current_team != submitting_team:
+	if current_team != 2:
 		return
 	var action = message.get("action", {})
 	if not (action is Dictionary):
@@ -672,6 +741,9 @@ func _handle_remote_submit_action(message: Dictionary, from_peer: int) -> void:
 func _handle_state_sync(message: Dictionary) -> void:
 	if not message.has("state") or not message["state"] is Dictionary:
 		return
+	print("=== JOINER RECEIVED STATE SYNC ===")
+	print("current_team in received data: ", message["state"].get("current_team"))
+	print("team_ap in received data: ", message["state"].get("team_ap"))
 	from_dict(message["state"])
 	_update_multiplayer_panel()
 	_update_ui()
@@ -694,6 +766,9 @@ func _read_port_input() -> int:
 func _is_online_mode() -> bool:
 	return multiplayer_enabled or multiplayer_pending
 
+func is_online_mode_ex() -> bool:
+	return multiplayer_enabled
+
 func _update_multiplayer_panel() -> void:
 	if MultiplayerInfoLabel == null:
 		return
@@ -712,6 +787,7 @@ func to_dict() -> Dictionary:
 	return match_state.to_dict(MapManager.to_dict(), UnitManager.to_dict())
 
 func from_dict(data: Dictionary) -> void:
+	var previous_team = current_team
 	match_state.load_dict(data)
 	_sync_from_match_state()
 	if data.has("board") and data["board"] is Dictionary:
@@ -719,16 +795,17 @@ func from_dict(data: Dictionary) -> void:
 	vt = MapManager.get_all_victory_tiles()
 	if data.has("units") and data["units"] is Dictionary:
 		UnitManager.from_dict(data["units"])
-	if team_ap.size() < team_no:
-		team_ap.resize(team_no)
-		for i in range(team_no):
-			if team_ap[i] == null:
-				team_ap[i] = UnitManager.get_units_for_team(i).size()
+	if _is_online_mode():
+		while team_ap.size() < 3:
+			team_ap.append(0)
 	selected_unit = null
 	selected_ability = null
-	game_over = team_won != -1
+	game_over = match_state.team_won != -2
 	if game_over:
-		status_message = _victory_message(team_won)
+		status_message = _victory_message(match_state.team_won)
+	if _is_online_mode() and not game_over and current_team != previous_team:
+		start_turn()
+		return
 	_sync_to_match_state()
 	_sync_victory_overlay()
 	_refresh_ability_panel()
@@ -787,6 +864,7 @@ func _sync_to_match_state() -> void:
 	match_state.team_won = team_won
 	match_state.status_message = status_message
 	match_state.game_over = game_over
+	match_state.units = UnitManager.units
 
 func _sync_from_match_state() -> void:
 	current_team = match_state.current_team
@@ -797,3 +875,7 @@ func _sync_from_match_state() -> void:
 	team_won = match_state.team_won
 	status_message = match_state.status_message
 	game_over = match_state.game_over
+	UnitManager.units = match_state.units
+	if _is_online_mode():
+		while team_ap.size() < 3:
+			team_ap.append(0)

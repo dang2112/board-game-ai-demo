@@ -14,16 +14,26 @@ static func make_end_turn_action() -> Dictionary:
 	return {"type": "end_turn"}
 
 static func start_turn(game, state: MatchState) -> void:
-	if state.team_won != -1:
+	if state.team_won != -2:
 		state.game_over = true
 		state.status_message = game._victory_message(state.team_won)
 		return
 
 	game.selected_unit = null
 	game.selected_ability = null
-	state.status_message = "AI is thinking..." if state.current_team == game.AI_TEAM else "Blue units are yours. Click a blue unit, then choose an ability."
+	if state.current_team == game.AI_TEAM:
+		state.status_message = "AI is thinking..."
+	elif state.current_team == 0:
+		state.status_message = "Blue units are yours. Click a blue unit, then choose an ability."
+	elif state.current_team == 2:
+		state.status_message = "Red units are yours. Click a red unit, then choose an ability."
+	else:
+		state.status_message = "Team %d units are yours." % state.current_team
 	_ensure_team_arrays(state)
-	state.team_ap[state.current_team] = game.UnitManager.get_units_for_team(state.current_team).size()
+	var effective_team := state.current_team
+	if game._is_online_mode() and state.current_team == 2:
+		effective_team = 2
+	state.team_ap[effective_team] = game.UnitManager.get_units_for_team(state.current_team).size()
 	for unit in game.UnitManager.get_units_for_team(state.current_team):
 		unit.action_points = 1
 
@@ -60,14 +70,27 @@ static func end_turn(game, state: MatchState, victory_tiles: Array) -> void:
 	_sync_defeated_teams(game, state)
 	if _check_elimination_victory(game, state):
 		return
-
-	state.current_team = (state.current_team + 1) % state.team_no
+	if game._is_online_mode():
+		if state.current_team == 0:
+			state.current_team = 2
+			state.team_ap[2] = game.UnitManager.get_units_for_team(2).size()
+			game.team_ap[2] = state.team_ap[2]
+			for unit in game.UnitManager.get_units_for_team(2):
+				unit.action_points = 1
+		else:
+			state.current_team = 0
+			state.team_ap[0] = game.UnitManager.get_units_for_team(0).size()
+			game.team_ap[0] = state.team_ap[0]
+			for unit in game.UnitManager.get_units_for_team(0):
+				unit.action_points = 1
+	else:
+		state.current_team = (state.current_team + 1) % state.team_no
 
 static func validate_action(game, state: MatchState, action: Dictionary) -> Dictionary:
 	if action.is_empty():
 		return {"ok": false, "reason": "Missing action."}
 
-	if state.game_over or state.team_won != -1:
+	if state.game_over or state.team_won != -2:
 		return {"ok": false, "reason": "The match is over."}
 
 	if String(action.get("type", "")) == "end_turn":
@@ -162,27 +185,32 @@ static func get_legal_actions(game, state: MatchState, team: int) -> Array:
 	return actions
 
 static func _sync_defeated_teams(game, state: MatchState) -> void:
+	if game._is_online_mode():
+		return
 	for team in range(state.team_no):
 		if game.UnitManager.get_units_for_team(team).is_empty() and state.defeated_teams.find(team) == -1:
 			state.defeated_teams.append(team)
 
 static func _check_elimination_victory(game, state: MatchState) -> bool:
-	if state.team_won != -1:
+	if state.team_won != -2:
 		state.game_over = true
 		state.status_message = game._victory_message(state.team_won)
 		return true
 
+	if game._is_online_mode():
+		return false
+
 	if state.defeated_teams.size() < state.team_no - 1:
 		return false
 
-	var surviving_team := -1
+	var surviving_team := -2
 	for team in range(state.team_no):
 		if state.defeated_teams.find(team) == -1:
-			if surviving_team != -1:
+			if surviving_team != -2:
 				return false
 			surviving_team = team
 
-	if surviving_team == -1 or state.defeated_teams.size() != state.team_no - 1:
+	if surviving_team == -2 or state.defeated_teams.size() != state.team_no - 1:
 		return false
 
 	state.team_won = surviving_team
@@ -197,11 +225,15 @@ static func _ensure_team_arrays(state: MatchState) -> void:
 		state.team_ap.append(0)
 
 static func _team_ap_for(state: MatchState, team: int) -> int:
+	if team == 2:
+		team = 2
 	if team < 0 or team >= state.team_ap.size():
 		return 0
 	return int(state.team_ap[team])
 
 static func _spend_team_ap(state: MatchState, team: int, amount: int) -> void:
+	if team == 2:
+		team = 2
 	if team < 0 or team >= state.team_ap.size():
 		return
 	state.team_ap[team] = maxi(int(state.team_ap[team]) - maxi(amount, 0), 0)
@@ -217,7 +249,7 @@ static func _build_action_message(actor: Unit, ability: Ability, target_pos: Vec
 	if actor == null or ability == null:
 		return "Action complete."
 
-	var actor_team := "Blue" if actor.team == 0 else "Red"
+	var actor_team := "Blue" if actor.team == 0 else ("Red" if actor.team == 2 else "Team %d" % actor.team)
 	var cost_text := "%d AP" % cost
 
 	match ability.get_target_mode():
@@ -225,7 +257,7 @@ static func _build_action_message(actor: Unit, ability: Ability, target_pos: Vec
 			return "%s %s moved to (%d, %d) (-%s)" % [actor_team, actor.display_name, target_pos.x, target_pos.y, cost_text]
 		Ability.TARGET_UNIT:
 			if target_unit != null:
-				var target_team := "Blue" if target_unit.team == 0 else "Red"
+				var target_team := "Blue" if target_unit.team == 0 else ("Red" if target_unit.team == 2 else "Team %d" % target_unit.team)
 				return "%s %s shot %s %s (-%s)" % [actor_team, actor.display_name, target_team, target_unit.display_name, cost_text]
 
 	return "%s %s acted (-%s)" % [actor_team, actor.display_name, cost_text]

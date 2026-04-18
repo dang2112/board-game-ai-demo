@@ -186,6 +186,11 @@ func update_visual():
 			frame_color = Color(0.45, 0.08, 0.08)
 			shadow_color = Color(0.0, 0.0, 0.0, 0.26)
 			sprite_color = Color(1.0, 0.55, 0.55, 0.78)
+		-1:
+			core_color = Color(1.0, 0.42, 0.42)
+			frame_color = Color(0.45, 0.08, 0.08)
+			shadow_color = Color(0.0, 0.0, 0.0, 0.26)
+			sprite_color = Color(1.0, 0.55, 0.55, 0.78)
 		_:
 			core_color = Color(0.92, 0.92, 0.92)
 

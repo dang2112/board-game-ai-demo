@@ -10,8 +10,8 @@ func get_valid_targets(user: Unit, _map_manager, unit_manager, team_ap: int = -1
 	var targets: Array = []
 	if team_ap >= 0 and team_ap < 1:
 		return targets
-	for target_unit in unit_manager.get_units_for_team(1 - user.team):
-		if user.position_on_grid.distance_to(target_unit.position_on_grid) <= attack_range and not _is_path_blocked(user.position_on_grid, target_unit.position_on_grid, _map_manager):
+	for target_unit in unit_manager.units:
+		if target_unit.team != user.team and user.position_on_grid.distance_to(target_unit.position_on_grid) <= attack_range and not _is_path_blocked(user.position_on_grid, target_unit.position_on_grid, _map_manager):
 			targets.append(target_unit.position_on_grid)
 
 	return targets
