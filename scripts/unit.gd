@@ -148,7 +148,6 @@ static func new_from_dict(data: Dictionary) -> Unit:
 				unit = scene.instantiate() as Unit
 	if unit == null:
 		unit = Unit.new()
-	unit.from_dict(data)
 	return unit
 
 func update_visual():

@@ -11,6 +11,8 @@ var team_won: int = -2
 var status_message: String = ""
 var game_over: bool = false
 var units: Array = []
+var last_action_message: String = ""
+var last_action_board_pos: Vector2i = Vector2i(-1, -1)
 
 func reset(team_count: int, starting_team: int, starting_status: String) -> void:
 	current_team = starting_team
@@ -24,6 +26,8 @@ func reset(team_count: int, starting_team: int, starting_status: String) -> void
 	team_won = -2
 	status_message = starting_status
 	game_over = false
+	last_action_message = ""
+	last_action_board_pos = Vector2i(-1, -1)
 
 func to_dict(board: Dictionary, units: Dictionary) -> Dictionary:
 	return {
@@ -36,6 +40,8 @@ func to_dict(board: Dictionary, units: Dictionary) -> Dictionary:
 		"team_won": team_won,
 		"status_message": status_message,
 		"units": units,
+		"last_action_message": last_action_message,
+		"last_action_board_pos": [last_action_board_pos.x, last_action_board_pos.y],
 	}
 
 func load_dict(data: Dictionary) -> void:
@@ -47,3 +53,9 @@ func load_dict(data: Dictionary) -> void:
 	team_won = int(data.get("team_won", team_won))
 	status_message = String(data.get("status_message", status_message))
 	game_over = team_won != -2
+	last_action_message = String(data.get("last_action_message", ""))
+	var pos_arr = data.get("last_action_board_pos", [-1, -1])
+	if pos_arr is Array and pos_arr.size() >= 2:
+		last_action_board_pos = Vector2i(int(pos_arr[0]), int(pos_arr[1]))
+	else:
+		last_action_board_pos = Vector2i(-1, -1)

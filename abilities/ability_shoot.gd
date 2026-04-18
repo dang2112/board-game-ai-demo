@@ -31,10 +31,9 @@ func execute(user: Unit, target: Unit) -> bool:
 	if _is_path_blocked(user.position_on_grid, target.position_on_grid, map_manager):
 		return false
 	
+	print("SHOOT: attacker team ", user.team, " target team ", target.team, " target health before: ", target.health)
 	target.health -= damage
-	
-	if target.health <= 0:
-		target.queue_free() #death
+	print("SHOOT: target health after: ", target.health)
 	
 	return true
 

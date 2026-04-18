@@ -42,6 +42,10 @@ func from_dict(data: Dictionary) -> void:
 				if unit != null:
 					add_child(unit)
 					units.append(unit)
+					unit.from_dict(unit_data)
+					if unit.health <= 0:
+						unit.queue_free()
+						units.erase(unit)
 
 func get_units_for_team(team):
 	cleanup_units()

@@ -57,6 +57,8 @@ var defeated_teams = []
 var selected_unit: Unit = null
 var selected_ability: Ability = null
 var status_message := ""
+var last_action_message := ""
+var last_action_board_pos := Vector2i(-1, -1)
 var board_origin: Vector2 = Vector2.ZERO
 var team_vp = []
 var team_ap = []
@@ -333,7 +335,9 @@ func apply_match_action(action: Dictionary) -> Dictionary:
 		_update_ui()
 		return result
 	if result.has("message") and result.has("board_pos"):
-		announce_action(String(result["message"]), result["board_pos"])
+		last_action_message = String(result["message"])
+		last_action_board_pos = result["board_pos"]
+		announce_action(last_action_message, last_action_board_pos)
 	if bool(result.get("end_turn", false)):
 		if _is_online_mode():
 			_sync_to_match_state()
@@ -741,10 +745,9 @@ func _handle_remote_submit_action(message: Dictionary, from_peer: int) -> void:
 func _handle_state_sync(message: Dictionary) -> void:
 	if not message.has("state") or not message["state"] is Dictionary:
 		return
-	print("=== JOINER RECEIVED STATE SYNC ===")
-	print("current_team in received data: ", message["state"].get("current_team"))
-	print("team_ap in received data: ", message["state"].get("team_ap"))
 	from_dict(message["state"])
+	if match_state.last_action_message != "":
+		announce_action(match_state.last_action_message, match_state.last_action_board_pos)
 	_update_multiplayer_panel()
 	_update_ui()
 
@@ -752,9 +755,10 @@ func _broadcast_state_sync() -> void:
 	if not NetworkManager.is_hosting():
 		return
 	_sync_to_match_state()
+	var state_dict = to_dict()
 	NetworkManager.broadcast_message({
 		"type": "state_sync",
-		"state": to_dict(),
+		"state": state_dict,
 	})
 
 func _read_port_input() -> int:
@@ -806,6 +810,10 @@ func from_dict(data: Dictionary) -> void:
 	if _is_online_mode() and not game_over and current_team != previous_team:
 		start_turn()
 		return
+	if _is_online_mode() and match_state.last_action_message != "":
+		announce_action(match_state.last_action_message, match_state.last_action_board_pos)
+		match_state.last_action_message = ""
+		match_state.last_action_board_pos = Vector2i(-1, -1)
 	_sync_to_match_state()
 	_sync_victory_overlay()
 	_refresh_ability_panel()
@@ -865,6 +873,8 @@ func _sync_to_match_state() -> void:
 	match_state.status_message = status_message
 	match_state.game_over = game_over
 	match_state.units = UnitManager.units
+	match_state.last_action_message = last_action_message
+	match_state.last_action_board_pos = last_action_board_pos
 
 func _sync_from_match_state() -> void:
 	current_team = match_state.current_team
@@ -875,7 +885,6 @@ func _sync_from_match_state() -> void:
 	team_won = match_state.team_won
 	status_message = match_state.status_message
 	game_over = match_state.game_over
-	UnitManager.units = match_state.units
 	if _is_online_mode():
 		while team_ap.size() < 3:
 			team_ap.append(0)
