@@ -500,10 +500,10 @@ func _update_ui() -> void:
 			VictorySubtitle.text = "Game over"
 		if PlayAgainButton != null:
 			PlayAgainButton.visible = game_over
-	EndTurnButton.disabled = multiplayer_pending or get_tree().paused or game_over or _get_team_action_points(current_team) <= 0
+	#EndTurnButton.disabled = multiplayer_pending or get_tree().paused or game_over or _get_team_action_points(current_team) <= 0
 	if _is_online_mode():
 		var can_end := (current_team == local_team) or (current_team == 0 and local_team == 2) or (current_team == 2 and local_team == 0)
-		EndTurnButton.disabled = EndTurnButton.disabled or not can_end
+		#EndTurnButton.disabled = EndTurnButton.disabled or not can_end
 	HostButton.disabled = multiplayer_pending or multiplayer_enabled
 	JoinButton.disabled = multiplayer_pending or multiplayer_enabled
 	DisconnectButton.disabled = not _is_online_mode()
