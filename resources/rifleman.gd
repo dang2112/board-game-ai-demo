@@ -11,6 +11,7 @@ func _ready():
 	team_textures = {
 		0: HUMAN_TEXTURE,
 		1: AI_TEXTURE,
+		2: AI_TEXTURE,
 	}
 	
 	abilities = [

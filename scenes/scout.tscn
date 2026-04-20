@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://brg678dyx8ucd"]
 
 [ext_resource type="Script" uid="uid://b2i1kaqxd4suw" path="res://resources/scout.gd" id="1_7hcjh"]
-[ext_resource type="Texture2D" uid="uid://c5bep0ulvjgya" path="res://assets/thing1.png" id="2_5iy45"]
+[ext_resource type="Texture2D" uid="uid://eph2tt5e0xcb" path="res://assets/scout1.png" id="2_5iy45"]
 
 [node name="Scout" type="Control"]
 layout_mode = 3
